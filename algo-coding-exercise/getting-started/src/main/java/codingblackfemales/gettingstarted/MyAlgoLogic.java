@@ -45,18 +45,16 @@ public class MyAlgoLogic implements AlgoLogic {
         var childOrder = option.get();
         if (askPrice < 0.60) {
             logger.info("[MyAlgoLogic] Adding order for" + askQuantity + "@" + askPrice);
-            new CreateChildOrder(Side.BUY, bidQuantity, bidPrice);
+            return new CreateChildOrder(Side.BUY, bidQuantity, bidPrice);
 
-        }
-        if (bidPrice > 100) {
+        } else if (bidPrice > 100) {
             logger.info("[MyAlgoLogic] Adding order for" + bidQuantity + "@" + bidPrice);
-            new CreateChildOrder(Side.SELL, askQuantity, askPrice);
+           return new CreateChildOrder(Side.SELL, askQuantity, askPrice);
 
         } else {
             logger.info("[MyAlgoLogic] Cancelling order: " + childOrder);
-            new CancelChildOrder(childOrder);
+           return new CancelChildOrder(childOrder);
         }
-
-        return NoAction.NoAction;
+// return NoAction.NoAction;
     }
 }
