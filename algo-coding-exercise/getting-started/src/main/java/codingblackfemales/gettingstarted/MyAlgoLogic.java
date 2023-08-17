@@ -47,14 +47,15 @@ public class MyAlgoLogic implements AlgoLogic {
             logger.info("[MyAlgoLogic] Adding order for" + askQuantity + "@" + askPrice);
             return new CreateChildOrder(Side.BUY, bidQuantity, bidPrice);
 
-        } else if (bidPrice > 100) {
+        }
+        if (bidPrice > 100) {
             logger.info("[MyAlgoLogic] Adding order for" + bidQuantity + "@" + bidPrice);
-           return new CreateChildOrder(Side.SELL, askQuantity, askPrice);
+            return new CreateChildOrder(Side.SELL, askQuantity, askPrice);
 
         } else {
             logger.info("[MyAlgoLogic] Cancelling order: " + childOrder);
-           return new CancelChildOrder(childOrder);
+            return new CancelChildOrder(childOrder);
         }
-// return NoAction.NoAction;
+        // return NoAction.NoAction;
     }
 }
