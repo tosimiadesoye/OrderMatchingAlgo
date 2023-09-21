@@ -1,9 +1,13 @@
 package codingblackfemales.gettingstarted;
 
+
 import codingblackfemales.container.Actioner;
 import codingblackfemales.container.AlgoContainer;
-import codingblackfemales.marketdata.api.MarketDataProviderTest;
-
+import codingblackfemales.container.RunTrigger;
+import codingblackfemales.marketdata.api.MarketDataEncoder;
+import codingblackfemales.marketdata.api.MarketDataMessage;
+import codingblackfemales.marketdata.api.MarketDataProvider;
+import codingblackfemales.marketdata.impl.SimpleFileMarketDataProvider;
 import codingblackfemales.orderbook.OrderBook;
 import codingblackfemales.orderbook.channel.MarketDataChannel;
 import codingblackfemales.orderbook.channel.OrderChannel;
@@ -13,14 +17,18 @@ import codingblackfemales.sequencer.Sequencer;
 import codingblackfemales.sequencer.consumer.LoggingConsumer;
 import codingblackfemales.sequencer.marketdata.SequencerTestCase;
 import codingblackfemales.sequencer.net.TestNetwork;
-import messages.marketdata.BookUpdateEncoder;
-import messages.order.MessageHeaderEncoder;
+import codingblackfemales.service.MarketDataService;
+import codingblackfemales.service.OrderService;
 
+
+import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.Test;
 
 public class BuyLowSellHighAlgoBackTest extends SequencerTestCase {
-    private final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
-    private final BookUpdateEncoder encoder = new BookUpdateEncoder();
+    private MarketDataService marketDataService;
+    private MarketDataProvider provider;
+    private MarketDataEncoder encoder;
+
 
     private AlgoContainer container;
 
@@ -29,6 +37,7 @@ public class BuyLowSellHighAlgoBackTest extends SequencerTestCase {
         final TestNetwork network = new TestNetwork();
         final Sequencer sequencer = new DefaultSequencer(network);
 
+        final RunTrigger runTrigger = new RunTrigger();
         final Actioner actioner = new Actioner(sequencer);
 
         final MarketDataChannel marketDataChannel = new MarketDataChannel(sequencer);
@@ -37,27 +46,38 @@ public class BuyLowSellHighAlgoBackTest extends SequencerTestCase {
 
         final OrderBookInboundOrderConsumer orderConsumer = new OrderBookInboundOrderConsumer(book);
 
+        provider = new SimpleFileMarketDataProvider("../algo/src/test/resources/marketdata.json");
+        encoder = new MarketDataEncoder();
+        marketDataService = new MarketDataService(runTrigger);
+        container = new AlgoContainer(marketDataService, new OrderService(runTrigger), runTrigger, actioner);
+
+        //set BuyLowSellHighAlgo logic
         container.setLogic(new BuyLowSellHighAlgo());
 
         network.addConsumer(new LoggingConsumer());
         network.addConsumer(book);
+        network.addConsumer(container.getMarketDataService());
         network.addConsumer(container.getOrderService());
         network.addConsumer(orderConsumer);
         network.addConsumer(container);
 
         return sequencer;
+
     }
 
-    private MarketDataProviderTest createSampleMarketDataTick() {
-        MarketDataProviderTest marketDataProviderTest = new MarketDataProviderTest();
-        return marketDataProviderTest;
+    private UnsafeBuffer createSampleMarketDataTick() {
+        MarketDataMessage marketDataMessage;
+        while ((marketDataMessage = provider.poll()) != null) {
+            UnsafeBuffer encoded = encoder.encode(marketDataMessage);
+            marketDataService.onMessage(encoded);
+            return encoded;
+        }
+        return null;
     }
 
     @Test
     public void testExampleTest() throws Exception {
-        var marketDataProviderTest = new MarketDataProviderTest();
-        send(createSampleMarketDataTick().should_process_market_data());
-
+        send((createSampleMarketDataTick()));
     }
 
 }
